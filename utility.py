@@ -26,3 +26,27 @@ def Piinv(x: np.array):
     if x.ndim == 1:
         return np.concatenate((x, np.ones(1)))
     return np.vstack((x, np.ones((1, x.shape[1]))))
+
+
+def skew(x: np.array):
+    """
+    This function returns a numpy array with the skew symmetric cross product matrix for vector.
+    the skew symmetric cross product matrix is defined such that
+    np.cross(a, b) = np.dot(skew(a), b)
+    https://stackoverflow.com/questions/36915774/form-numpy-array-from-possible-numpy-array
+
+    Args:
+        x (np.array): 1x3 matrix
+
+    Return:
+        s (np.array): 3x3 skew symmetrix matrix for cross product
+    """
+    vector = x.ravel()
+    s = np.asarray(
+        [
+            [0, -vector[2], vector[1]],
+            [vector[2], 0, -vector[0]],
+            [-vector[1], vector[0], 0],
+        ]
+    )
+    return s
