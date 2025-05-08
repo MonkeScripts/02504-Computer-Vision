@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def Pi(x: np.array):
     """
     Converts homogeneous to inhomogeneous coordinates
@@ -26,6 +27,24 @@ def Piinv(x: np.array):
     if x.ndim == 1:
         return np.concatenate((x, np.ones(1)))
     return np.vstack((x, np.ones((1, x.shape[1]))))
+
+
+def projectpoints(K: np.array, R: np.array, t: np.array, Q: np.array):
+    """
+    Obtains projected 2D coordinates from world coordinates
+
+    Args:
+        K (np.array) intrinsics matrix
+        R (np.array) extrinsic rotation matrix
+        t (np.array) extrinsic translation matrix
+        Q (np.array) homogeneous input points in world coordinates
+
+    Return:
+        np.array projected 2D points
+    """
+    # Projection matrix = K[R t] Q
+    extrinsics = np.concatenate((R, t), axis=1)
+    return K @ extrinsics @ Q
 
 
 def skew(x: np.array):
