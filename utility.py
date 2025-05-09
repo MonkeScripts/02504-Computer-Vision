@@ -69,3 +69,34 @@ def skew(x: np.array):
         ]
     )
     return s
+
+
+def triangulate(pixel_coords: np.array, proj_matrices: np.array):
+    """
+    Given a list of pixel coordinates and projection matrices, triangulate to a common 3D point
+    Args:
+        pixel_coords (np.array): list of pixel coordinates
+        proj_matrices (np.array): list of projection matrices
+
+    Return:
+        triangle (np.array): triangulated 3D point
+    """
+    n = pixel_coords.shape[0]
+    # B_stack = []
+    B_stack = np.zeros((n * 2, 4))
+    for i in range(n):
+        x, y = pixel_coords[i]
+        proj_matrix = proj_matrices[i]
+        B = np.asarray(
+            [
+                proj_matrix[2, :] * x - proj_matrix[0, :],
+                proj_matrix[2, :] * y - proj_matrix[1, :],
+            ]
+        )
+        B_stack = np.vstack((B_stack, B))
+    U, S, Vt = np.linalg.svd(B_stack)
+    # Get the smallest vector
+    print(f"Vt is {Vt}")
+    triangle = Vt[-1, :]
+    triangle /= triangle[-1]
+    return triangle
