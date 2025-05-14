@@ -23,9 +23,9 @@ def point_line_distance(line: np.ndarray, p: np.ndarray):
         d (float): distance
     """
     if p.shape != (3, 1):
-        raise ValueError("p must be a 3x1 homogenous vector")
+        raise ValueError(f"p must be a 3x1 homogenous vector, current shape {p.shape}")
     if line.shape != (3, 1):
-        raise ValueError("line must be a 3x1 homogenous vector")
+        raise ValueError(f"line must be a 3x1 homogenous vector, current shap {line.shape}")
 
     d = abs(line.T @ p) / (abs(p[2]) * np.sqrt(line[0] ** 2 + line[1] ** 2))
     return d
@@ -184,6 +184,7 @@ def normalize2d(q: np.ndarray):
 def hest(q1: np.ndarray, q2: np.ndarray, normalize=False):
     """
     Calculate the homography matrix from n sets of 2D points
+    q1 = H @ q2
 
     Args:
         q1 : 2 x n, 2D points in the first image
@@ -352,3 +353,89 @@ def triangulate_nonlin(pixel_coords: np.array, proj_matrices: np.array):
     x0 = triangulate(pixel_coords, proj_matrices).reshape(-1)
     least_error_3D = scipy.optimize.least_squares(compute_residuals, x0)
     return least_error_3D.x
+
+def pest(Q: np.ndarray, q: np.ndarray, normalize=False):
+    """
+    Estimate projection matrix using direct linear transformation.
+
+    Args:
+        Q : 3 x n array of 3D points
+        q : 2 x n array of 2D points
+        normalize : bool, whether to normalize the 2D points
+
+    Returns:
+        P : 3 x 4 projection matrix
+    """
+    if Q.shape[0] != 3:
+        raise ValueError("Q must be a 3 x n array of 3D points")
+    if q.shape[0] != 2:
+        raise ValueError("q must be a 2 x n array of 2D points")
+
+    if normalize:
+        q, T = normalize2d(q)
+
+    q = Piinv(q)  # 3 x n
+    Q = Piinv(Q)  # 4 x n
+    n = Q.shape[1]  # number of points
+    B = []
+    for i in range(n):
+        Qi = Q[:, i]
+        qi = q[:, i]
+        Bi = np.kron(Qi, skew(qi))
+        B.append(Bi)
+    B = np.array(B).reshape(3 * n, 12)
+    U, S, Vt = np.linalg.svd(B)
+    P = Vt[-1].reshape(4, 3)
+    P = P.T
+    if normalize:
+        P = np.linalg.inv(T) @ P
+    return P
+
+
+def fit_line(p1: np.ndarray, p2: np.ndarray):
+    """
+    Fits a line given 2 points.
+
+    Args:
+        p1, p2 (np.array) : 2x1 inhomogenous coordinates
+
+    Returns:
+        l : 3x1, line in homogenous coordinates
+    """
+    if p1.shape == (2,):
+        p1 = p1.reshape(2, 1)
+        p2 = p2.reshape(2, 1)
+    if p1.shape != (2, 1) or p2.shape != (2, 1):
+        raise ValueError("Points must be 2x1 np.array")
+
+    p1h = Piinv(p1)
+    p2h = Piinv(p2)
+    # cross() requires input as vectors
+    l = np.cross(p1h.squeeze(), p2h.squeeze())
+    return l
+
+
+def find_inliers_outliers(l: np.ndarray, points: np.ndarray, tau: float):
+    """
+    Args:
+        l : equation of line in homogenous coordinates
+        points : 2xn, set of 2D points
+        tau : threshold for inliners
+
+    Returns:
+        inliners (np.array) : 2xa, set of inliner points
+        outliers (np.array) : 2xb, set of outlier points
+    """
+    inliners = []
+    outliers = []
+    for p in points.T:
+        p = p.reshape(2, 1)
+        ph = Piinv(p)
+        d = abs(l.T @ ph) / (abs(ph[2]) * np.sqrt(l[0] ** 2 + l[1] ** 2))
+        if d <= tau:  # inliner
+            inliners.append(p)
+        else:  # outlier
+            outliers.append(p)
+    inliners = np.array(inliners).squeeze().T
+    outliers = np.array(outliers).squeeze().T
+    return inliners, outliers
